@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>WebSocket Test</title>
+<script language="javascript" type="text/javascript">
+
+    var wsUri = "ws://localhost:8080"
+    var output
+    var websocket
+
+    function init() {
+        output = document.getElementById("output")
+        openWebSocket()
+    }
+
+    function openWebSocket() {
+        websocket = new WebSocket(wsUri, ["access_token", "x3JJHMbDL1EzLkh9GBhXDw=="])
+        websocket.onopen = function (evt) { onOpen(evt) }
+        websocket.onclose = function (evt) { onClose(evt) }
+        websocket.onmessage = function (evt) { onMessage(evt) }
+        websocket.onerror = function (evt) { onError(evt) }
+    }
+
+    function closeWebSocket() {
+        websocket.close()
+    }
+
+    function onOpen(evt) {
+        writeToScreen("CONNECTED")
+    }
+
+    function onClose(evt) {
+        writeToScreen("DISCONNECTED")
+    }
+
+    function onMessage(evt) {
+        writeToScreen('<span style="color: blue">RESPONSE: ' + evt.data + '</span>')
+    }
+
+    function onError(evt) {
+        writeToScreen('<span style="color: red">ERROR:</span> ' + evt.data)
+    }
+
+    function doSend(message) {
+        writeToScreen("SENT: " + message)
+        websocket.send(message)
+    }
+
+    function writeToScreen(message) {
+        var pre = document.createElement("p")
+        pre.style.wordWrap = "break-word"
+        pre.innerHTML = message
+        output.appendChild(pre)
+    }
+
+    function processRaw() {
+        var text = document.getElementById('fieldRaw').value
+
+        doSend(text)
+    }
+
+    function processEvent() {
+        var message = JSON.stringify({
+            event: document.getElementById('fieldEvent').value,
+            message: document.getElementById('fieldMessage').value
+        })
+
+        doSend(message)
+    }
+
+    window.addEventListener("load", init, false)
+
+</script>
+
+<h2>WebSocket Test</h2>
+
+<div>
+    <div>
+        <button onclick="openWebSocket()">OPEN</button>
+        <button onclick="closeWebSocket()">CLOSE</button>
+    </div>
+    <label>Raw</label>
+    <div>
+        <input id='fieldRaw' type="text">
+        <button onclick="processRaw()">send</button>
+    </div>
+    <label>Event</label>
+    <div>
+        <input id='fieldEvent' type="text">
+        <input id='fieldMessage' type="text">
+        <button onclick="processEvent()">send</button>
+    </div>
+</div>
+
+<div id="output"></div>
