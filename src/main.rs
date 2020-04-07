@@ -3,11 +3,16 @@ use std::{env, io::Error};
 use futures_util::StreamExt;
 use tokio::net::{TcpListener, TcpStream};
 
+mod event_engine;
+use event_engine::EventEngine;
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let addr = env::args()
         .nth(1)
         .unwrap_or_else(|| "127.0.0.1:8080".to_string());
+
+    let _event = EventEngine::new();
 
     // Create the event loop and TCP listener we'll accept connections on.
     let try_socket = TcpListener::bind(&addr).await;
