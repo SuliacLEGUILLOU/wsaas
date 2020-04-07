@@ -9,5 +9,8 @@ edition = "2018"
 [dependencies]
 log = "0.4"
 tokio-tungstenite = "*"
+tungstenite = "*"
 tokio = { version = "0.2", features = ["full"] }
 futures-util="*"
+futures-channel="*"
+rand="*"
