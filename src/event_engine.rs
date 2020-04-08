@@ -1,8 +1,9 @@
 #![allow(dead_code)] // TODO: remove this at some point
 use std::collections::HashMap;
 
+// TODO: Does it make sense to aggregate and return the result?
 // Lambda prototype: (EventName: String) -> ()
-type EventCallback<'a> = Box<dyn FnMut(String) -> () + 'a>;
+type EventCallback<'a> = Box<dyn FnMut(String) + 'a>;
 
 pub struct EventEngine {
     event: HashMap<String, Vec<EventCallback<'static>>>,
