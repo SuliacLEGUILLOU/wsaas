@@ -12,7 +12,7 @@ async fn main() -> Result<(), Error> {
         .nth(1)
         .unwrap_or_else(|| "127.0.0.1:8080".to_string());
 
-    let _event = EventEngine::new();
+    let mut event = EventEngine::new();
 
     // Create the event loop and TCP listener we'll accept connections on.
     let try_socket = TcpListener::bind(&addr).await;
