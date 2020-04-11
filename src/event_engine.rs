@@ -2,8 +2,8 @@
 use std::collections::HashMap;
 
 // TODO: Does it make sense to aggregate and return the result?
-// Lambda prototype: (EventName: String) -> ()
-type EventCallback<'a> = Box<dyn FnMut(String) + 'a>;
+// Lambda prototype: (id: String, message: String) -> ()
+type EventCallback<'a> = Box<dyn FnMut(String, String) + 'a>;
 
 pub struct EventEngine {
     event: HashMap<String, Vec<EventCallback<'static>>>,
@@ -19,7 +19,7 @@ impl EventEngine {
 
     pub fn on<F: 'static>(&mut self, id: String, cb: F)
     where
-        F: FnMut(String),
+        F: FnMut(String, String),
     {
         let f = Box::new(cb);
 
@@ -35,7 +35,7 @@ impl EventEngine {
 
     pub fn on_raw<F: 'static>(&mut self, id: &str, cb: F)
     where
-        F: FnMut(String),
+        F: FnMut(String, String),
     {
         self.on(id.to_string(), cb);
     }
@@ -56,11 +56,11 @@ impl EventEngine {
         self.is_set(id.to_string())
     }
 
-    pub fn emit(&mut self, id: String) {
-        match self.event.get_mut(&id) {
+    pub fn emit(&mut self, event: String, id: String, message: String) {
+        match self.event.get_mut(&event) {
             Some(callbacks) => {
                 for cb in callbacks {
-                    cb(id.clone()); // TODO: Clone is bad
+                    cb(id.clone(), message.clone()); // TODO: Clone is bad
                 }
             }
             None => println!("Event not set"),
@@ -76,38 +76,38 @@ mod tests {
     fn basic_use() {
         let mut x1 = EventEngine::new();
         let t = true;
-        let cb = move |s: String| {
+        let cb = move |id: String, msg: String| {
             assert!(t);
-            assert_eq!(s, "test");
+            assert_eq!(id, "id");
         };
 
         x1.on_raw("test", cb);
-        x1.emit("test".to_string());
+        x1.emit("test".to_string(), "id".to_string(), "msg".to_string());
     }
 
     #[test]
     fn multiple_on() {
         let mut x1 = EventEngine::new();
         let t = true;
-        let cb1 = move |s: String| {
+        let cb1 = move |id: String, msg: String| {
             assert!(t);
-            assert_eq!(s, "test");
+            assert_eq!(id, "id");
         };
-        let cb2 = move |s: String| {
+        let cb2 = move |id, msg| {
             assert!(t);
-            assert_eq!(s, "test");
+            assert_eq!(id, "id");
         };
 
         x1.on_raw("test", cb1);
         x1.on_raw("test", cb2);
-        x1.emit("test".to_string());
+        x1.emit("test".to_string(), "id".to_string(), "msg".to_string());
     }
 
     #[test]
     fn unon() {
         let mut x1 = EventEngine::new();
-        let cb = move |s: String| {
-            assert_eq!(s, "test");
+        let cb = move |id: String, msg: String| {
+            assert_eq!(id, "test");
         };
 
         x1.on_raw("test", cb);

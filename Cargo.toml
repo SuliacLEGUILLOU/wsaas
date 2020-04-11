@@ -7,7 +7,12 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+hyper = "0.13"
+hyper-tls = "*"
 log = "0.4"
 tokio-tungstenite = "*"
+tungstenite="*"
 tokio = { version = "0.2", features = ["full"] }
 futures-util="*"
+futures-channel="*"
+uuid = { version = "0.8", features = ["serde", "v4"] }

@@ -1,45 +1,28 @@
 use std::{env, io::Error};
 
-use futures_util::StreamExt;
-use tokio::net::{TcpListener, TcpStream};
-
 mod event_engine;
+mod http_client;
+mod http_server;
+mod ws_engine;
+
 use event_engine::EventEngine;
+use http_client::HttpClient;
+use http_server::*;
+use ws_engine::*;
+
+
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let addr = env::args()
+    let ws_addr = env::args()
         .nth(1)
         .unwrap_or_else(|| "127.0.0.1:8080".to_string());
 
-    let mut event = EventEngine::new();
+    let http_client = HttpClient::new(String::from("http://localhost:8081/websocket"));
+    let ws_engine = WebsocketEngine::new(ws_addr, http_client);
+    // let http_server = HttpServer::new(String::from("localhost:3000"), ws_engine);
 
-    // Create the event loop and TCP listener we'll accept connections on.
-    let try_socket = TcpListener::bind(&addr).await;
-    let mut listener = try_socket.expect("Failed to bind");
-    println!("Listening on: {}", addr);
-
-    while let Ok((stream, _)) = listener.accept().await {
-        tokio::spawn(accept_connection(stream));
-    }
+    ws_engine.start().await;
 
     Ok(())
-}
-
-async fn accept_connection(stream: TcpStream) {
-    let addr = stream
-        .peer_addr()
-        .expect("connected streams should have a peer address");
-    println!("Peer address: {}", addr);
-
-    let ws_stream = tokio_tungstenite::accept_async(stream)
-        .await
-        .expect("Error during the websocket handshake occurred");
-
-    println!("New WebSocket connection: {}", addr);
-
-    let (write, read) = ws_stream.split();
-    read.forward(write)
-        .await
-        .expect("Failed to forward message")
 }
