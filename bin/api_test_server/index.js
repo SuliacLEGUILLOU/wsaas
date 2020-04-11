@@ -8,7 +8,7 @@ const port = 8081
 app.use(bodyParser.json())
 
 app.use((req, res) => {
-    console.log('[' + moment().format('hh:mm:ss') + '] Request:', req.path, req.body)
+    console.log('[' + moment().format('hh:mm:ss') + '] '+ req.method + ':', req.path, req.body)
     res.send({code: 'OK'})
 })
 

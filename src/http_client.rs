@@ -50,8 +50,7 @@ impl HttpClient {
         let req = Request::builder()
             .method(Method::DELETE)
             .uri(self.target_uri)
-            .header("Content-Type", "application/json")
-            .body(Body::from("id"))
+            .body(Body::from(""))
             .unwrap();
 
         let resp = client.request(req).await?;

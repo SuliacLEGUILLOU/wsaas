@@ -50,6 +50,7 @@ impl WebsocketEngine {
     }
 }
 
+// TODO: Current use of the HttpClient and id makes a lot of cloning
 async fn handle_connection(peer_map: PeerMap, client: HttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr) {
     let ws_stream = tokio_tungstenite::accept_async(raw_stream)
         .await
@@ -71,4 +72,5 @@ async fn handle_connection(peer_map: PeerMap, client: HttpClient, id: String, ra
 
     println!("{} disconnected", &addr);
     peer_map.lock().unwrap().remove(&id);
+    client.on_disconnect(id).await;
 }
