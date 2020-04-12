@@ -17,8 +17,6 @@ use super::http_client::*;
 type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<String, Tx>>>;
 
-use super::event_engine::EventEngine;
-
 pub struct WebsocketEngine {
     addr: String,
     connections: PeerMap,
@@ -34,7 +32,7 @@ impl WebsocketEngine {
         }
     }
 
-    pub async fn start(self) {
+    pub async fn start(&self) {
         let try_socket = TcpListener::bind(&self.addr).await;
         let mut listener = try_socket.expect("Failed to bind");
         println!("Listening on: {}", self.addr);
@@ -47,6 +45,23 @@ impl WebsocketEngine {
 
             tokio::spawn(self::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr));
         }
+    }
+
+    pub fn send_msg(&self, id: String, msg: String) {
+        let peer = self.connections.clone();
+        let peer_map = peer.lock().unwrap();
+        let connection = peer_map.get(&id).unwrap();
+
+        connection.unbounded_send(Message::from(msg));
+    }
+
+    pub fn close_ws(&self, id: String) {
+        let peer = self.connections.clone();
+        let mut peer_map = peer.lock().unwrap();
+        let connection = peer_map.get(&id).unwrap();
+
+        connection.close_channel();
+        peer_map.remove(&id);
     }
 }
 

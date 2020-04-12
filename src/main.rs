@@ -1,11 +1,9 @@
 use std::{env, io::Error};
 
-mod event_engine;
 mod http_client;
 mod http_server;
 mod ws_engine;
 
-use event_engine::EventEngine;
 use http_client::HttpClient;
 use http_server::*;
 use ws_engine::*;
@@ -20,9 +18,9 @@ async fn main() -> Result<(), Error> {
 
     let http_client = HttpClient::new(String::from("http://localhost:8081/websocket"));
     let ws_engine = WebsocketEngine::new(ws_addr, http_client);
-    // let http_server = HttpServer::new(String::from("localhost:3000"), ws_engine);
+    let mut http_server = HttpServer::new(3000, ws_engine);
 
-    ws_engine.start().await;
+    http_server.start().await;
 
     Ok(())
 }
