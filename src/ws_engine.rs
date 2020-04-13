@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use hyper::Body;
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
 
@@ -39,6 +40,7 @@ impl WebsocketEngine {
 
         while let Ok((stream, addr)) = listener.accept().await {
             let id = Uuid::new_v4().to_string();
+
             match self.http_client.on_connect(&id).await {
                 Ok(_) => {
                     println!("New connection from {}, {}", addr, id);
@@ -52,17 +54,15 @@ impl WebsocketEngine {
         }
     }
 
-    pub fn send_msg(&self, id: String, msg: String) -> String {
+    pub fn send_msg(&self, id: String, body: Body) -> String {
         let peer = self.connections.clone();
         let peer_map = peer.lock().unwrap();
 
         match peer_map.get(&id) {
             Some(connection) => {
-                match connection.unbounded_send(Message::from(msg)) {
-                    Ok(_) => String::from("OK"),
-                    Err(_) => String::from("INTERNAL_ERROR")
-                }
-                
+                // TODO: This pattern prevent effective error feedback to the api
+                tokio::spawn(handle_msg(connection.clone(), body));
+                String::from("OK")
             }
             None => String::from("NOT_FOUND")
         }
@@ -84,6 +84,14 @@ impl WebsocketEngine {
         }
         
     }
+}
+
+// TODO: This is ugly as fuck
+async fn handle_msg(connection: UnboundedSender<Message>, body: Body){
+    let tmp_body = hyper::body::to_bytes(body).await.unwrap();
+    let full_body = tmp_body.iter().cloned().collect::<Vec<u8>>();
+
+    connection.unbounded_send(Message::from(String::from_utf8(full_body).unwrap()));
 }
 
 // TODO: Current use of the HttpClient and id makes a lot of cloning

@@ -1,5 +1,5 @@
 use std::net::SocketAddr;
-use hyper::{Body, Response, Error, Server, Uri, Method};
+use hyper::{Body, Request, Response, Error, Server, Uri, Method};
 use hyper::service::{make_service_fn, service_fn};
 use futures_util::{future, pin_mut};
 
@@ -30,24 +30,24 @@ impl HttpServer {
             let ws = ws_engine.clone();
 
             async move {
-            Ok::<_, Error>(service_fn(move |req| {
-                let id = get_id(req.uri());
+                Ok::<_, Error>(service_fn(move |req: Request<Body>| {
+                    let id = get_id(req.uri());
 
-                let code = match req.method() {
-                    &Method::PUT => ws.send_msg(id, String::from("Yo")),
-                    &Method::DELETE => ws.close_ws(id),
-                    _ => String::from("BAD_REQUEST")
-                };
-                
-                async move {
-                    let res = Response::builder()
-                        .header("Content-Type", "application/json")
-                        .body(Body::from(format!("{{\"code\": \"{}\"}}", code)));
+                    let code = match req.method() {
+                        &Method::PUT => ws.send_msg(id, req.into_body()),
+                        &Method::DELETE => ws.close_ws(id),
+                        _ => String::from("BAD_REQUEST")
+                    };
+                    
+                    async move {
+                        let res = Response::builder()
+                            .header("Content-Type", "application/json")
+                            .body(Body::from(format!("{{\"code\": \"{}\"}}", code)));
 
-                    Ok::<_, Error>(res.unwrap())
-                }
-            }))
-        }
+                        Ok::<_, Error>(res.unwrap())
+                    }
+                }))
+            }
         });
 
         let server = Server::bind(&addr).serve(make_svc);
