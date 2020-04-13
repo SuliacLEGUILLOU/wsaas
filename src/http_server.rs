@@ -1,8 +1,7 @@
-use std::convert::Infallible;
 use std::net::SocketAddr;
-use hyper::{Body, Request, Response, Error, Server, Uri, Method};
+use hyper::{Body, Response, Error, Server, Uri, Method};
 use hyper::service::{make_service_fn, service_fn};
-use futures_util::future;
+use futures_util::{future, pin_mut};
 
 use std::{
     sync::Arc
@@ -37,7 +36,7 @@ impl HttpServer {
                 match req.method() {
                     &Method::PUT => ws.send_msg(id, String::from("Yo")),
                     &Method::DELETE => ws.close_ws(id),
-                    _ => println!("Not found")
+                    _ => println!("{}", "{\"code\": \"INVALID_METHOD\"}")
                 };
                 
                 async move {
@@ -52,10 +51,12 @@ impl HttpServer {
         });
 
         let server = Server::bind(&addr).serve(make_svc);
+        let ws = self.ws_engine.start();
 
-        // TODO: Make this a future::select
-        // TODO: This return some error that could be useful to debug
-        future::join(server, self.ws_engine.clone().start()).await;
+        pin_mut!(server, ws);
+
+        // TODO: return of the future is holding some error that I should display
+        future::select(server, ws).await;
     }
 }
 
@@ -65,21 +66,3 @@ fn get_id(uri: &Uri) -> String {
 
     return id;
 }
-
-async fn hello_world(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    let id = get_id(req.uri());
-
-    println!("{}: {}", req.method(), id);
-
-    let body = match *req.method() {
-        Method::PUT => String::from("{\"code\": \"OK\"}"),
-        Method::DELETE => String::from("{\"code\": \"OK\"}"),
-        _ => String::from("{\"code\": \"INVALID_METHOD\"}"),
-    };
-    let res = Response::builder()
-        .header("Content-Type", "application/json")
-        .body(body.into());
-
-    Ok(res.unwrap())
-}
-
