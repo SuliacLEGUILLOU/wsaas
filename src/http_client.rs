@@ -19,9 +19,9 @@ impl HttpClient {
         let client = Client::builder().build::<_, hyper::Body>(https);
         let req = Request::builder()
             .method(Method::POST)
-            .uri(self.target_uri.clone())
+            .uri(format!("{}/{}", self.target_uri, id))
             .header("Content-Type", "application/json")
-            .body(Body::from("{\"code\": \"OK\"}"))
+            .body(Body::from("{\"code\": \"NEW_CONNECTION\"}"))
             .unwrap();
 
         let resp = client.request(req).await?;
@@ -34,7 +34,7 @@ impl HttpClient {
         let client = Client::builder().build::<_, hyper::Body>(https);
         let req = Request::builder()
             .method(Method::PUT)
-            .uri(self.target_uri)
+            .uri(format!("{}/{}", self.target_uri, id))
             .header("Content-Type", "application/json")
             .body(Body::from(msg))
             .unwrap();
@@ -49,7 +49,7 @@ impl HttpClient {
         let client = Client::builder().build::<_, hyper::Body>(https);
         let req = Request::builder()
             .method(Method::DELETE)
-            .uri(self.target_uri)
+            .uri(format!("{}/{}", self.target_uri, id))
             .body(Body::from(""))
             .unwrap();
 
