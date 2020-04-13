@@ -33,16 +33,16 @@ impl HttpServer {
             Ok::<_, Error>(service_fn(move |req| {
                 let id = get_id(req.uri());
 
-                match req.method() {
+                let code = match req.method() {
                     &Method::PUT => ws.send_msg(id, String::from("Yo")),
                     &Method::DELETE => ws.close_ws(id),
-                    _ => println!("{}", "{\"code\": \"INVALID_METHOD\"}")
+                    _ => String::from("BAD_REQUEST")
                 };
                 
                 async move {
                     let res = Response::builder()
                         .header("Content-Type", "application/json")
-                        .body(Body::from("{\"code\": \"OK\"}"));
+                        .body(Body::from(format!("{{\"code\": \"{}\"}}", code)));
 
                     Ok::<_, Error>(res.unwrap())
                 }

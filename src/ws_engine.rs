@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    net::SocketAddr,
+    net::{SocketAddr, Shutdown},
     sync::{Arc, Mutex},
 };
 
@@ -39,29 +39,50 @@ impl WebsocketEngine {
 
         while let Ok((stream, addr)) = listener.accept().await {
             let id = Uuid::new_v4().to_string();
-            let auth = self.http_client.on_connect(&id).await;
-
-            println!("New connection from {}, {}", addr, id);
-
-            tokio::spawn(self::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr));
+            match self.http_client.on_connect(&id).await {
+                Ok(_) => {
+                    println!("New connection from {}, {}", addr, id);
+                    tokio::spawn(self::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr));
+                },
+                Err(_) => {
+                    eprintln!("Invalid connection attempt by {}", addr);
+                    stream.shutdown(Shutdown::Both);
+                },
+            };
         }
     }
 
-    pub fn send_msg(&self, id: String, msg: String) {
+    pub fn send_msg(&self, id: String, msg: String) -> String {
         let peer = self.connections.clone();
         let peer_map = peer.lock().unwrap();
-        let connection = peer_map.get(&id).unwrap();
 
-        connection.unbounded_send(Message::from(msg));
+        match peer_map.get(&id) {
+            Some(connection) => {
+                match connection.unbounded_send(Message::from(msg)) {
+                    Ok(_) => String::from("OK"),
+                    Err(_) => String::from("INTERNAL_ERROR")
+                }
+                
+            }
+            None => String::from("NOT_FOUND")
+        }
+
+        
     }
 
-    pub fn close_ws(&self, id: String) {
+    pub fn close_ws(&self, id: String)  -> String {
         let peer = self.connections.clone();
         let mut peer_map = peer.lock().unwrap();
-        let connection = peer_map.get(&id).unwrap();
 
-        connection.close_channel();
-        peer_map.remove(&id);
+        match peer_map.get(&id) {
+            Some(connection) => {
+                connection.close_channel();
+                peer_map.remove(&id);
+                String::from("OK")
+            }
+            None => String::from("NOT_FOUND")
+        }
+        
     }
 }
 
@@ -85,7 +106,9 @@ async fn handle_connection(peer_map: PeerMap, client: HttpClient, id: String, ra
     pin_mut!(msg_in, msg_out);
     future::select(msg_in, msg_out).await;
 
-    println!("{} disconnected", &addr);
     peer_map.lock().unwrap().remove(&id);
-    client.on_disconnect(id).await;
+    match client.on_disconnect(id).await {
+        Ok(_) => println!("{} disconnected", &addr),
+        Err(_) => eprintln!("Error while sending disconnection request: {}", &addr)
+    };
 }
