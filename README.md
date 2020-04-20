@@ -2,22 +2,22 @@
 
 ## Current status: Prototype
 
-This project aim to help system scale their websocket interface.
+The project aim is to help systems scale their websocket interfaces.
 It should be used with a distributed or a lambda base system.
 
-It is inspired by the Amazon Web Service API Gateway with the Websocket flavor,
-but aim to remove most of the complexity of the service.
+It is inspired by the Amazon Web Service [API Gateway](https://aws.amazon.com/api-gateway/) with the Websocket flavor,
+but aims to remove most of the complexity of the service.
 
 ## Why
 
-When you want to support websocket on a distributed system, you will often end up
+When you want to support websockets on a distributed system, you will often end up
 in the situation where the event you want to forward to the front end is not detected
-on the server holding the websocket connection. This server will provide you a web hook
-interface so pushing and getting clients information is just a classic REST http interface.
+on the server holding the websocket connection. This server provides you with a web hook
+interface so pushing and getting clients information is just a classic REST HTTP interface.
 
 ## General interface description
 
-This server rely on two environment variable to work (Those are my test setup):
+This server relies on two environment variables to work (Those are my test setup):
 
 ```
 export API_URI=localhost:80/websocket
@@ -37,7 +37,7 @@ Will be called after the client close the connection. Use it to maintain integri
 
 The POST request will contain a `ws_uri` parameter that will look like `<WS_HOSTNAME>/some_id`
 
-This endpoint support the following method:
+This endpoint supports the following method:
 
 - PUT
 Push information to the client
@@ -64,7 +64,7 @@ Body: {
     "code": "OK",
 }
 ```
-Sending any other code value will kill the connection
+Sending any other code value will kill the connection.
 
 ## Security
 
@@ -74,7 +74,7 @@ TODO (I think I can just summon the https over the interface but double check WS
 
 ### Push to api
 
-Have your api support https
+Have your API support HTTPS.
 
 ### Server push
 
