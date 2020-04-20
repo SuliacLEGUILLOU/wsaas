@@ -15,9 +15,9 @@ pub struct HttpServer {
 }
 
 impl HttpServer {
-    pub fn new(port: u16, ws_engine: WebsocketEngine) -> HttpServer {
+    pub fn new(port: String, ws_engine: WebsocketEngine) -> HttpServer {
         HttpServer {
-            port: port,
+            port: port.parse::<u16>().unwrap(),
             ws_engine: Arc::new(ws_engine),
         }
     }

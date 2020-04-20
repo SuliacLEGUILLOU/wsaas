@@ -10,13 +10,16 @@ use ws_engine::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let ws_addr = env::args()
-        .nth(1)
-        .unwrap_or_else(|| "127.0.0.1:8080".to_string());
+    let _log_level = match env::var("LOG_LEVEL") { Ok(l) => l, Err(_) => String::from("INFO") };
+    let _ws_timeout = match env::var("WS_TIMEOUT") { Ok(t) => t, Err(_) => String::from("INFO") };
+    let ws_port = match env::var("WS_PORT") { Ok(p) => p, Err(_) => String::from("8080") };
+    let http_port = match env::var("HTTP_PORT") { Ok(p) => p, Err(_) => String::from("8081") };
+    let local_address = match env::var("LOCAL_ADDRESS") { Ok(a) => a, Err(_) => String::from("http://localhost:8081") };
+    let target_address = match env::var("TARGET_ADDRESS") { Ok(a) => a, Err(_) => String::from("http://localhost:3000/websocket") };
 
-    let http_client = LocalHttpClient::new(String::from("http://localhost:8081/websocket"), String::from("http://localhost:3000"));
-    let ws_engine = WebsocketEngine::new(ws_addr, http_client);
-    let mut http_server = HttpServer::new(3000, ws_engine);
+    let http_client = LocalHttpClient::new(target_address, local_address);
+    let ws_engine = WebsocketEngine::new(ws_port, http_client);
+    let mut http_server = HttpServer::new(http_port, ws_engine);
 
     http_server.start().await;
 

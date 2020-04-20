@@ -20,24 +20,25 @@ type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<String, Tx>>>;
 
 pub struct WebsocketEngine {
-    addr: String,
+    port: String,
     connections: PeerMap,
     http_client: LocalHttpClient,
 }
 
+// TODO: Graceful shutdown
 impl WebsocketEngine {
-    pub fn new(addr: String, client: LocalHttpClient) -> WebsocketEngine {
+    pub fn new(port: String, client: LocalHttpClient) -> WebsocketEngine {
         WebsocketEngine {
-            addr: addr,
+            port: port,
             connections: PeerMap::new(Mutex::new(HashMap::new())),
             http_client: client,
         }
     }
 
     pub async fn start(&self) {
-        let try_socket = TcpListener::bind(&self.addr).await;
+        let try_socket = TcpListener::bind(format!("127.0.0.1:{}", &self.port)).await;
         let mut listener = try_socket.expect("Failed to bind");
-        println!("Listening on: {}", self.addr);
+        println!("Listening on post: {}", self.port);
 
         while let Ok((stream, addr)) = listener.accept().await {
             let id = Uuid::new_v4().to_string();

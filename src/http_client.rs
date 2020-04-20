@@ -27,7 +27,7 @@ impl LocalHttpClient {
      */
     pub fn on_connect(&self, id: String, auth_header: String) -> bool {
         let uri = format!("{}/websocket/{}", self.target_uri, id);
-        let body = format!("{{\"code\": \"NEW_CONNECTION\",\"url\":\"{}/{}\"}}", self.local_uri, id);
+        let body = format!("{{\"code\": \"NEW_CONNECTION\",\"ws_uri\":\"{}/{}\"}}", self.local_uri, id);
         let response = SyncRequest::post(uri)
             .header("content-type", "application/json")
             .header("Authorization", auth_header)
