@@ -1,5 +1,7 @@
 # Web Socket as a Service
 
+## Current status: Prototype
+
 This project aim to help system scale their websocket interface.
 It should be used with a distributed or a lambda base system.
 

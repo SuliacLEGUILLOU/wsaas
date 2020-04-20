@@ -1,32 +1,43 @@
-use hyper::{Body, Method, Request};
+use hyper::{Body, Method, Request, StatusCode};
 use hyper::Client;
 use hyper_tls::HttpsConnector;
 
+use isahc::prelude::*;
+use isahc::prelude::Request as SyncRequest;
+
+
 #[derive(Clone)]
-pub struct HttpClient {
+pub struct LocalHttpClient {
     target_uri: String,
+    local_uri: String
 }
 
-impl HttpClient {
-    pub fn new(uri: String) -> HttpClient {
-        HttpClient{
-            target_uri: uri,
+impl LocalHttpClient {
+    pub fn new(target_uri: String, local_uri: String) -> LocalHttpClient {
+        LocalHttpClient{
+            target_uri: target_uri,
+            local_uri: local_uri,
         }
     }
 
-    pub async fn on_connect(&self, id: &String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let https = HttpsConnector::new();
-        let client = Client::builder().build::<_, hyper::Body>(https);
-        let req = Request::builder()
-            .method(Method::POST)
-            .uri(format!("{}/{}", self.target_uri, id))
-            .header("Content-Type", "application/json")
-            .body(Body::from("{\"code\": \"NEW_CONNECTION\"}"))
-            .unwrap();
+    /**
+     * TODO: Ho god so much wrong stuff here but it works so...
+     * Request use isahc client instead of the hyper one because I can't figure out how to async this properly
+     * (See https://github.com/snapview/tokio-tungstenite/issues/98)
+     */
+    pub fn on_connect(&self, id: String, auth_header: String) -> bool {
+        let uri = format!("{}/websocket/{}", self.target_uri, id);
+        let body = format!("{{\"code\": \"NEW_CONNECTION\",\"url\":\"{}/{}\"}}", self.local_uri, id);
+        let response = SyncRequest::post(uri)
+            .header("content-type", "application/json")
+            .header("Authorization", auth_header)
+            .body(body).unwrap()
+            .send().unwrap();
 
-        let resp = client.request(req).await?;
-        println!("{}", resp.status());
-        Ok(())
+        match response.status() {
+            StatusCode::OK => true,
+            _ => false,
+        }
     }
 
     pub async fn on_message(self, id: String, msg: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

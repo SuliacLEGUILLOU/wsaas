@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    net::{SocketAddr, Shutdown},
+    net::{SocketAddr},
     sync::{Arc, Mutex},
 };
 
@@ -10,6 +10,7 @@ use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
 
 use tokio::net::{TcpListener, TcpStream};
 use tungstenite::protocol::Message;
+use tungstenite::handshake::server::{Request, Response};
 
 use uuid::Uuid;
 
@@ -21,11 +22,11 @@ type PeerMap = Arc<Mutex<HashMap<String, Tx>>>;
 pub struct WebsocketEngine {
     addr: String,
     connections: PeerMap,
-    http_client: HttpClient,
+    http_client: LocalHttpClient,
 }
 
 impl WebsocketEngine {
-    pub fn new(addr: String, client: HttpClient) -> WebsocketEngine {
+    pub fn new(addr: String, client: LocalHttpClient) -> WebsocketEngine {
         WebsocketEngine {
             addr: addr,
             connections: PeerMap::new(Mutex::new(HashMap::new())),
@@ -41,16 +42,7 @@ impl WebsocketEngine {
         while let Ok((stream, addr)) = listener.accept().await {
             let id = Uuid::new_v4().to_string();
 
-            match self.http_client.on_connect(&id).await {
-                Ok(_) => {
-                    println!("New connection from {}, {}", addr, id);
-                    tokio::spawn(self::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr));
-                },
-                Err(_) => {
-                    eprintln!("Invalid connection attempt by {}", addr);
-                    stream.shutdown(Shutdown::Both);
-                },
-            };
+            tokio::spawn(self::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr));
         }
     }
 
@@ -87,16 +79,31 @@ impl WebsocketEngine {
 }
 
 // TODO: This is ugly as fuck
-async fn handle_msg(connection: UnboundedSender<Message>, body: Body){
+async fn handle_msg(connection: UnboundedSender<Message>, body: Body) {
     let tmp_body = hyper::body::to_bytes(body).await.unwrap();
     let full_body = tmp_body.iter().cloned().collect::<Vec<u8>>();
 
-    connection.unbounded_send(Message::from(String::from_utf8(full_body).unwrap()));
+    match connection.unbounded_send(Message::from(String::from_utf8(full_body).unwrap())) {
+        Err(e) => println!("{}", e),
+        _ => {}
+    };
 }
 
-// TODO: Current use of the HttpClient and id makes a lot of cloning
-async fn handle_connection(peer_map: PeerMap, client: HttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr) {
-    let ws_stream = tokio_tungstenite::accept_async(raw_stream)
+// TODO: Current use of the LocalHttpClient and id makes a lot of cloning
+async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr) {
+    let auth_middleware_callback = |req: &Request, mut res: Response| {
+
+        let auth = match req.headers().get("Authorization") {
+            Some(s) => String::from(s.to_str().unwrap()),
+            None => String::from("none")
+        };
+
+        if !client.on_connect(id.clone(), auth) {
+            res.headers_mut().remove("upgrade");
+        }
+        Ok(res)
+    };
+    let ws_stream = tokio_tungstenite::accept_hdr_async(raw_stream, auth_middleware_callback)
         .await
         .expect("Error during the websocket handshake occurred");
     println!("WebSocket connection established: {}", addr);
@@ -115,7 +122,7 @@ async fn handle_connection(peer_map: PeerMap, client: HttpClient, id: String, ra
     future::select(msg_in, msg_out).await;
 
     peer_map.lock().unwrap().remove(&id);
-    match client.on_disconnect(id).await {
+    match client.clone().on_disconnect(id).await {
         Ok(_) => println!("{} disconnected", &addr),
         Err(_) => eprintln!("Error while sending disconnection request: {}", &addr)
     };
