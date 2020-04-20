@@ -11,7 +11,7 @@ use ws_engine::*;
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let _log_level = match env::var("LOG_LEVEL") { Ok(l) => l, Err(_) => String::from("INFO") };
-    let _ws_timeout = match env::var("WS_TIMEOUT") { Ok(t) => t, Err(_) => String::from("INFO") };
+    let _ws_timeout = match env::var("WS_TIMEOUT") { Ok(t) => t, Err(_) => String::from("30000") };
     let ws_port = match env::var("WS_PORT") { Ok(p) => p, Err(_) => String::from("8080") };
     let http_port = match env::var("HTTP_PORT") { Ok(p) => p, Err(_) => String::from("8081") };
     let local_address = match env::var("LOCAL_ADDRESS") { Ok(a) => a, Err(_) => String::from("http://localhost:8081") };
