@@ -94,7 +94,7 @@ Have your API support HTTPS.
 
 ## Additional settings
 
-```
+```Bash
 export LOG_LEVEL=INFO       # value: ERROR|WARN|INFO|DEBUG
 export WS_TIMEOUT=30000     # Timeout value in ms
 export WS_PORT=8080         # Change the default WS post to listen to
