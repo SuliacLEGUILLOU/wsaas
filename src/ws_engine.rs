@@ -9,6 +9,7 @@ use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
 
 use tokio::net::{TcpListener, TcpStream};
+use tokio::time::Instant;
 use tungstenite::protocol::Message;
 use tungstenite::handshake::server::{Request, Response};
 
@@ -20,6 +21,7 @@ type Tx = UnboundedSender<Message>;
 type PeerMap = Arc<Mutex<HashMap<String, Tx>>>;
 
 pub struct WebsocketEngine {
+    timeout: u16,
     port: String,
     connections: PeerMap,
     http_client: LocalHttpClient,
@@ -27,8 +29,9 @@ pub struct WebsocketEngine {
 
 // TODO: Graceful shutdown
 impl WebsocketEngine {
-    pub fn new(port: String, client: LocalHttpClient) -> WebsocketEngine {
+    pub fn new(port: String, timeout: u16, client: LocalHttpClient) -> WebsocketEngine {
         WebsocketEngine {
+            timeout: timeout,
             port: port,
             connections: PeerMap::new(Mutex::new(HashMap::new())),
             http_client: client,
@@ -92,8 +95,8 @@ async fn handle_msg(connection: UnboundedSender<Message>, body: Body) {
 
 // TODO: Current use of the LocalHttpClient and id makes a lot of cloning
 async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr) {
+    let start_time = Instant::now();
     let auth_middleware_callback = |req: &Request, mut res: Response| {
-
         let auth = match req.headers().get("Authorization") {
             Some(s) => String::from(s.to_str().unwrap()),
             None => String::from("none")
@@ -107,7 +110,7 @@ async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: Strin
     let ws_stream = tokio_tungstenite::accept_hdr_async(raw_stream, auth_middleware_callback)
         .await
         .expect("Error during the websocket handshake occurred");
-    println!("WebSocket connection established: {}", addr);
+    println!("{:?} WebSocket connection established: {}", start_time, addr);
 
     let (tx, rx) = unbounded();
     peer_map.lock().unwrap().insert(id.clone(), tx);
@@ -123,6 +126,7 @@ async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: Strin
     future::select(msg_in, msg_out).await;
 
     peer_map.lock().unwrap().remove(&id);
+    println!("closing {}, duration {}s", id, start_time.elapsed().as_secs());
     match client.clone().on_disconnect(id).await {
         Ok(_) => println!("{} disconnected", &addr),
         Err(_) => eprintln!("Error while sending disconnection request: {}", &addr)
