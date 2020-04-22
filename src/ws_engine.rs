@@ -62,8 +62,6 @@ impl WebsocketEngine {
             }
             None => String::from("NOT_FOUND")
         }
-
-        
     }
 
     pub fn close_ws(&self, id: String)  -> String {
@@ -86,6 +84,8 @@ impl WebsocketEngine {
 async fn handle_msg(connection: UnboundedSender<Message>, body: Body) {
     let tmp_body = hyper::body::to_bytes(body).await.unwrap();
     let full_body = tmp_body.iter().cloned().collect::<Vec<u8>>();
+
+    println!("new outgoing message ({} page)", full_body.len() / (1024*32) + 1);
 
     match connection.unbounded_send(Message::from(String::from_utf8(full_body).unwrap())) {
         Err(e) => println!("{}", e),
@@ -110,14 +110,14 @@ async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: Strin
     let ws_stream = tokio_tungstenite::accept_hdr_async(raw_stream, auth_middleware_callback)
         .await
         .expect("Error during the websocket handshake occurred");
-    println!("{:?} WebSocket connection established: {}", start_time, addr);
+    println!("WebSocket connection established: {}", addr);
 
     let (tx, rx) = unbounded();
     peer_map.lock().unwrap().insert(id.clone(), tx);
 
     let (outgoing, incoming) = ws_stream.split();
     let msg_in = incoming.try_for_each(|msg| {
-        println!("{}", msg);
+        println!("new incoming message ({} page)", msg.len() / (1024*32) + 1);
         tokio::spawn(client.clone().on_message(id.clone(), msg.to_string()));
         future::ok(())
     });
