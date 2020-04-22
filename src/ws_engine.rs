@@ -46,7 +46,7 @@ impl WebsocketEngine {
         while let Ok((stream, addr)) = listener.accept().await {
             let id = Uuid::new_v4().to_string();
 
-            tokio::spawn(self::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr));
+            tokio::spawn(self::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr, self.timeout));
         }
     }
 
@@ -94,7 +94,7 @@ async fn handle_msg(connection: UnboundedSender<Message>, body: Body) {
 }
 
 // TODO: Current use of the LocalHttpClient and id makes a lot of cloning
-async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr) {
+async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr, timeout: u16) {
     let start_time = Instant::now();
     let auth_middleware_callback = |req: &Request, mut res: Response| {
         let auth = match req.headers().get("Authorization") {
@@ -102,7 +102,7 @@ async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: Strin
             None => String::from("none")
         };
 
-        if !client.on_connect(id.clone(), auth) {
+        if !client.on_connect(id.clone(), auth, timeout) {
             res.headers_mut().remove("upgrade");
         }
         Ok(res)
