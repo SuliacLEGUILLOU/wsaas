@@ -23,6 +23,7 @@ type PeerMap = Arc<Mutex<HashMap<String, Tx>>>;
 
 pub struct WebsocketEngine {
     timeout: u16,
+    max_page: usize,
     port: String,
     connections: PeerMap,
     http_client: LocalHttpClient,
@@ -30,9 +31,10 @@ pub struct WebsocketEngine {
 
 // TODO: Graceful shutdown
 impl WebsocketEngine {
-    pub fn new(port: String, timeout: u16, client: LocalHttpClient) -> WebsocketEngine {
+    pub fn new(port: String, timeout: u16, max_page: usize, client: LocalHttpClient) -> WebsocketEngine {
         WebsocketEngine {
             timeout: timeout,
+            max_page: max_page,
             port: port,
             connections: PeerMap::new(Mutex::new(HashMap::new())),
             http_client: client,
@@ -93,14 +95,8 @@ impl WebsocketEngine {
         };
     }
 
-    // TODO: This is ugly as fuck
-    async fn handle_msg(connection: UnboundedSender<Message>, body: Body) {
-        let tmp_body = hyper::body::to_bytes(body).await.unwrap();
-        let full_body = tmp_body.iter().cloned().collect::<Vec<u8>>();
-
-        println!("new outgoing message ({} page)", full_body.len() / (1024*32) + 1);
-
-        match connection.unbounded_send(Message::from(String::from_utf8(full_body).unwrap())) {
+    async fn handle_msg(connection: UnboundedSender<Message>, body: Vec<u8>) {
+        match connection.unbounded_send(Message::from(body)) {
             Err(e) => println!("{}", e),
             _ => {}
         };
@@ -110,9 +106,20 @@ impl WebsocketEngine {
         let peer = self.connections.clone();
         let peer_map = peer.lock().await;
 
+        let tmp_body = hyper::body::to_bytes(body).await.unwrap();
+        let full_body = tmp_body.iter().cloned().collect::<Vec<u8>>();
+
+        let message_length = full_body.len() / (1024*32) + 1;
+
+        if message_length > self.max_page {
+            return String::from("MESSAGE_TOO_LONG")
+        }
+
+        println!("new outgoing message ({} page)", message_length);
+
         match peer_map.get(&id) {
             Some(connection) => {
-                let result = WebsocketEngine::handle_msg(connection.clone(), body).await;
+                WebsocketEngine::handle_msg(connection.clone(), full_body).await;
                 String::from("OK")
             }
             None => String::from("NOT_FOUND")
