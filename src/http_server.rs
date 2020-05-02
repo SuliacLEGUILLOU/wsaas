@@ -32,14 +32,15 @@ impl HttpServer {
             async move {
                 Ok::<_, Error>(service_fn(move |req: Request<Body>| {
                     let id = get_id(req.uri());
+                    let ws = ws.clone();
 
-                    let code = match req.method() {
-                        &Method::PUT => ws.send_msg(id, req.into_body()),
-                        &Method::DELETE => ws.close_ws(id),
-                        _ => String::from("BAD_REQUEST")
-                    };
-                    
                     async move {
+                        let code = match req.method() {
+                            &Method::PUT => ws.send_msg(id, req.into_body()).await,
+                            &Method::DELETE => ws.close_ws(id).await,
+                            _ => String::from("BAD_REQUEST")
+                        };
+
                         let res = Response::builder()
                             .header("Content-Type", "application/json")
                             .body(Body::from(format!("{{\"code\": \"{}\"}}", code)));
