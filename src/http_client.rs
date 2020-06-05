@@ -34,6 +34,7 @@ impl LocalHttpClient {
             .body(body).unwrap()
             .send().unwrap();
 
+        debug!("Client {} connect [{}]",id, response.status());
         match response.status() {
             StatusCode::OK => true,
             _ => false,
@@ -51,7 +52,7 @@ impl LocalHttpClient {
             .unwrap();
 
         let resp = client.request(req).await?;
-        println!("{}", resp.status());
+        debug!("Client {} message [{}]", id, resp.status());
         Ok(())
     }
 
@@ -64,8 +65,9 @@ impl LocalHttpClient {
             .body(Body::from(""))
             .unwrap();
 
+        debug!("Sending client {} close event to server", id);
         let resp = client.request(req).await?;
-        println!("{}", resp.status());
+        debug!("Client {} close [{}]", id, resp.status());
         Ok(())
     }
 }

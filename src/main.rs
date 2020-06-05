@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate log;
+
 use std::{env, io::Error};
 
 mod http_client;
@@ -10,7 +13,9 @@ use ws_engine::*;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let _log_level = match env::var("LOG_LEVEL") { Ok(l) => l, Err(_) => String::from("INFO") };
+    env_logger::init();
+    info!("*** WebSocket As A Service starting ***");
+
     let ws_timeout = match env::var("WS_TIMEOUT") { Ok(t) => t, Err(_) => String::from("30000") };
     let max_page = match env::var("MAX_PAGE") { Ok(t) => t, Err(_) => String::from("4") };
     let ws_port = match env::var("WS_PORT") { Ok(p) => p, Err(_) => String::from("8080") };

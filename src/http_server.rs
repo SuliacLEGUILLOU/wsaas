@@ -26,6 +26,8 @@ impl HttpServer {
         let ws_engine = self.ws_engine.clone();
         let addr = SocketAddr::from(([127, 0, 0, 1], self.port));
 
+        info!("Use port {}", self.port);
+
         let make_svc = make_service_fn(move |_| {
             let ws = ws_engine.clone();
 

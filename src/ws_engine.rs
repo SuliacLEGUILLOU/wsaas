@@ -44,7 +44,7 @@ impl WebsocketEngine {
     pub async fn start(&self) {
         let try_socket = TcpListener::bind(format!("127.0.0.1:{}", &self.port)).await;
         let mut listener = try_socket.expect("Failed to bind");
-        println!("Listening on post: {}", self.port);
+        info!("Use port {}", self.port);
 
         while let Ok((stream, addr)) = listener.accept().await {
             let id = Uuid::new_v4().to_string();
@@ -74,7 +74,7 @@ impl WebsocketEngine {
         let ws_stream = tokio_tungstenite::accept_hdr_async(raw_stream, auth_middleware_callback)
             .await
             .expect("Error during the websocket handshake occurred");
-        println!("WebSocket connection established: {}", addr);
+        info!("WS connection established from [{}]", addr);
 
         let (tx, rx) = unbounded();
         peer_map.lock().await.insert(id.clone(), tx);
@@ -82,10 +82,10 @@ impl WebsocketEngine {
         let (outgoing, incoming) = ws_stream.split();
         let msg_in = incoming.try_for_each(|msg| {
             let message_length = msg.len() / (1024*32) + 1;
-            println!("new incoming message from {} ({} page)", id, message_length);
+            info!("Client {} incoming msg ({} page)", id, message_length);
 
             if message_length > 4 {
-                println!("Message too long");
+                warn!("Client {}: Message too long", id);
             } else {
                 tokio::spawn(client.clone().on_message(id.clone(), msg.to_string()));
             }
@@ -96,16 +96,16 @@ impl WebsocketEngine {
         future::select(msg_in, msg_out).await;
 
         peer_map.lock().await.remove(&id);
-        println!("closing {}, duration {}s", id, start_time.elapsed().as_secs());
+        info!("Closing client  {}: duration {}s", id, start_time.elapsed().as_secs());
         match client.clone().on_disconnect(id).await {
-            Ok(_) => println!("{} disconnected", &addr),
-            Err(_) => eprintln!("Error while sending disconnection request: {}", &addr)
+            Ok(_) => info!("client ({}) disconnected", &addr),
+            Err(_) => warn!("Error while sending disconnection request ({})", &addr)
         };
     }
 
     async fn handle_msg(connection: UnboundedSender<Message>, body: Vec<u8>) {
         match connection.unbounded_send(Message::from(body)) {
-            Err(e) => println!("{}", e),
+            Err(e) => error!("{}", e),
             _ => {}
         };
     }
@@ -123,7 +123,7 @@ impl WebsocketEngine {
             return String::from("MESSAGE_TOO_LONG")
         }
 
-        println!("new outgoing message ({} page)", message_length);
+        info!("New message from server to client {} ({} page)", id, message_length);
 
         match peer_map.get(&id) {
             Some(connection) => {

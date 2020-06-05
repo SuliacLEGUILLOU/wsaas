@@ -10,6 +10,7 @@ edition = "2018"
 hyper = "0.13"
 hyper-tls = "*"
 log = "0.4"
+env_logger = "0.7"
 tokio-tungstenite = "*"
 tungstenite="*"
 tokio = { version = "0.2", features = ["full"] }
