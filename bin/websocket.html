@@ -24,6 +24,13 @@
         websocket.close()
     }
 
+    function messageTooLong() {
+        websocket.send(JSON.stringify({
+            event: 'test_message_too_long',
+            message: 'x'.repeat(1024 * 1024)
+        }))
+    }
+
     function onOpen(evt) {
         writeToScreen("CONNECTED")
     }
@@ -77,6 +84,7 @@
     <div>
         <button onclick="openWebSocket()">OPEN</button>
         <button onclick="closeWebSocket()">CLOSE</button>
+        <button onclick="messageTooLong()">ERR: Too long</button>
     </div>
     <label>Raw</label>
     <div>

@@ -56,6 +56,8 @@ impl WebsocketEngine {
 
     // TODO: Current use of the LocalHttpClient and id makes a lot of cloning
     // TODO: Figure out the borrow issue that prevent making this a method
+    // TODO: Find a way to make that function prototype lighter
+    // TODO: Too much todo
     async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr, timeout: u16) {
         let start_time = Instant::now();
         let auth_middleware_callback = |req: &Request, mut res: Response| {
@@ -79,8 +81,14 @@ impl WebsocketEngine {
 
         let (outgoing, incoming) = ws_stream.split();
         let msg_in = incoming.try_for_each(|msg| {
-            println!("new incoming message ({} page)", msg.len() / (1024*32) + 1);
-            tokio::spawn(client.clone().on_message(id.clone(), msg.to_string()));
+            let message_length = msg.len() / (1024*32) + 1;
+            println!("new incoming message from {} ({} page)", id, message_length);
+
+            if message_length > 4 {
+                println!("Message too long");
+            } else {
+                tokio::spawn(client.clone().on_message(id.clone(), msg.to_string()));
+            }
             future::ok(())
         });
         let msg_out = rx.map(Ok).forward(outgoing);
