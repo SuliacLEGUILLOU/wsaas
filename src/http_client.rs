@@ -65,9 +65,8 @@ impl LocalHttpClient {
             .body(Body::from(""))
             .unwrap();
 
-        debug!("Sending client {} close event to server", id);
         let resp = client.request(req).await?;
-        debug!("Client {} close [{}]", id, resp.status());
+        debug!("Sending client {} close event to server: ({})", id, resp.status());
         Ok(())
     }
 }

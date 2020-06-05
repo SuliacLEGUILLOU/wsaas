@@ -36,12 +36,15 @@ impl HttpServer {
                     let id = get_id(req.uri());
                     let ws = ws.clone();
 
+                    info!("New Server to client {} message", id);
+
                     async move {
                         let code = match req.method() {
-                            &Method::PUT => ws.send_msg(id, req.into_body()).await,
-                            &Method::DELETE => ws.close_ws(id).await,
+                            &Method::PUT => ws.send_msg(&id, req.into_body()).await,
+                            &Method::DELETE => ws.close_ws(&id).await,
                             _ => String::from("BAD_REQUEST")
                         };
+                        info!("Server to Client {} result: {}", id, code);
 
                         let res = Response::builder()
                             .header("Content-Type", "application/json")

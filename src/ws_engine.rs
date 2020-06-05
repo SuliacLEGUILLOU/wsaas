@@ -67,14 +67,17 @@ impl WebsocketEngine {
             };
 
             if !client.on_connect(id.clone(), auth, timeout) {
+                info!("Connection {} rejected", id);
                 res.headers_mut().remove("upgrade");
+            } else {
+                info!("Connection {} authorized", id);
             }
             Ok(res)
         };
         let ws_stream = tokio_tungstenite::accept_hdr_async(raw_stream, auth_middleware_callback)
             .await
             .expect("Error during the websocket handshake occurred");
-        info!("WS connection established from [{}]", addr);
+        info!("WS connection established client {} [{}]", id, addr);
 
         let (tx, rx) = unbounded();
         peer_map.lock().await.insert(id.clone(), tx);
@@ -96,7 +99,7 @@ impl WebsocketEngine {
         future::select(msg_in, msg_out).await;
 
         peer_map.lock().await.remove(&id);
-        info!("Closing client  {}: duration {}s", id, start_time.elapsed().as_secs());
+        info!("Closing client {}: duration {}s", id, start_time.elapsed().as_secs());
         match client.clone().on_disconnect(id).await {
             Ok(_) => info!("client ({}) disconnected", &addr),
             Err(_) => warn!("Error while sending disconnection request ({})", &addr)
@@ -110,7 +113,7 @@ impl WebsocketEngine {
         };
     }
 
-    pub async fn send_msg(&self, id: String, body: Body) -> String {
+    pub async fn send_msg(&self, id: &String, body: Body) -> String {
         let peer = self.connections.clone();
         let peer_map = peer.lock().await;
 
@@ -118,34 +121,44 @@ impl WebsocketEngine {
         let full_body = tmp_body.iter().cloned().collect::<Vec<u8>>();
 
         let message_length = full_body.len() / (1024*32) + 1;
-
+        
         if message_length > self.max_page {
+            warn!("Message from server to client {} failed to send: MESSAGE_TOO_LONG ({} page)", id, message_length);
             return String::from("MESSAGE_TOO_LONG")
+        } else {
+            info!("New message from server to client {} ({} page)", id, message_length);
         }
 
-        info!("New message from server to client {} ({} page)", id, message_length);
-
-        match peer_map.get(&id) {
+        match peer_map.get(id) {
             Some(connection) => {
                 WebsocketEngine::handle_msg(connection.clone(), full_body).await;
+                info!("Message for client {} has been served", id);
                 String::from("OK")
             }
-            None => String::from("NOT_FOUND")
+            None => {
+                warn!("Message for client {} failed to send: Connection not found", id);
+                String::from("NOT_FOUND")
+            }
         }
     }
 
-    pub async fn close_ws(&self, id: String)  -> String {
+    pub async fn close_ws(&self, id: &String)  -> String {
+        info!("Close connection {} at request of server", id);
+
         let peer = self.connections.clone();
         let mut peer_map = peer.lock().await;
 
-        match peer_map.get(&id) {
+        match peer_map.get(id) {
             Some(connection) => {
                 connection.close_channel();
-                peer_map.remove(&id);
+                peer_map.remove(id);
+                info!("Connection {} successfully closed", id);
                 String::from("OK")
             }
-            None => String::from("NOT_FOUND")
+            None => {
+                warn!("Attempt to close {} failed: Connection not found", id);
+                String::from("NOT_FOUND")
+            }
         }
-        
     }
 }

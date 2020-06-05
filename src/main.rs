@@ -23,6 +23,11 @@ async fn main() -> Result<(), Error> {
     let local_address = match env::var("LOCAL_ADDRESS") { Ok(a) => a, Err(_) => String::from("http://localhost:8081") };
     let target_address = match env::var("TARGET_ADDRESS") { Ok(a) => a, Err(_) => String::from("http://localhost:3000/websocket") };
 
+    info!("Local address: {}", local_address);
+    info!("Target address: {}", target_address);
+    info!("Max message page: {}", max_page);
+    info!("Connection timeout (not implemented): {}", ws_timeout);
+
     let http_client = LocalHttpClient::new(target_address, local_address);
     let ws_engine = WebsocketEngine::new(
         ws_port,
