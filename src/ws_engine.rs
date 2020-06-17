@@ -49,7 +49,7 @@ impl WebsocketEngine {
         while let Ok((stream, addr)) = listener.accept().await {
             let id = Uuid::new_v4().to_string();
 
-            let task = WebsocketEngine::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr, self.timeout);
+            let task = WebsocketEngine::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr, self.timeout, self.max_page);
             tokio::spawn(task);
         }
     }
@@ -58,7 +58,7 @@ impl WebsocketEngine {
     // TODO: Figure out the borrow issue that prevent making this a method
     // TODO: Find a way to make that function prototype lighter
     // TODO: Too much todo
-    async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr, timeout: u16) {
+    async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr, timeout: u16, max_page: usize) {
         let start_time = Instant::now();
         let auth_middleware_callback = |req: &Request, mut res: Response| {
             let auth = match req.headers().get("Authorization") {
@@ -87,7 +87,7 @@ impl WebsocketEngine {
             let message_length = msg.len() / (1024*32) + 1;
             info!("Client {} incoming msg ({} page)", id, message_length);
 
-            if message_length > 4 {
+            if message_length > max_page {
                 warn!("Client {}: Message too long", id);
             } else {
                 tokio::spawn(client.clone().on_message(id.clone(), msg.to_string()));
