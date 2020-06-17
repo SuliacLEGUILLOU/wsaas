@@ -95,7 +95,8 @@ Have your API support HTTPS.
 ## Additional settings
 
 ```Bash
-export LOG_LEVEL=INFO       # value: ERROR|WARN|INFO|DEBUG
+export LOG_LEVEL=info       # value: error|warn|info|debug
+export LOG_STYLE=info       # Enable log color: always|auto|never
 export WS_TIMEOUT=30000     # Timeout value in ms
 export WS_PORT=8080         # Change the default WS post to listen to
 export HTTP_PORT=8081       # Change the default HTTP post to listen to. Remember that it can have influence over the LOCAL_ADDRESS setting

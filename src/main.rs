@@ -11,9 +11,16 @@ use http_client::LocalHttpClient;
 use http_server::*;
 use ws_engine::*;
 
+use env_logger::Env;
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    env_logger::init();
+    let env = Env::default()
+        .filter_or("LOG_LEVEL", "info")
+        .write_style_or("LOG_STYLE", "always");
+
+    env_logger::init_from_env(env);
+
     info!("*** WebSocket As A Service starting ***");
 
     let ws_timeout = match env::var("WS_TIMEOUT") { Ok(t) => t, Err(_) => String::from("30000") };
