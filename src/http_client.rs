@@ -26,7 +26,7 @@ impl LocalHttpClient {
      * (See https://github.com/snapview/tokio-tungstenite/issues/98)
      */
     pub fn on_connect(&self, id: String, auth_header: String, timeout: u16) -> bool {
-        let uri = format!("{}/websocket/{}", self.target_uri, id);
+        let uri = format!("{}/{}", self.target_uri, id);
         let body = format!("{{\"code\": \"NEW_CONNECTION\",\"ws_uri\":\"{}/{}\",\"timeout\":{}}}", self.local_uri, id, timeout);
         let response = SyncRequest::post(uri)
             .header("content-type", "application/json")
@@ -41,6 +41,7 @@ impl LocalHttpClient {
         }
     }
 
+    // TODO: Make the content-type variable
     pub async fn on_message(self, id: String, msg: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let https = HttpsConnector::new();
         let client = Client::builder().build::<_, hyper::Body>(https);
@@ -59,10 +60,13 @@ impl LocalHttpClient {
     pub async fn on_disconnect(self, id: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let https = HttpsConnector::new();
         let client = Client::builder().build::<_, hyper::Body>(https);
+        let body = format!("{{\"code\": \"CONNECTION_CLOSE\", \"ws_uri\": \"{}/{}\"}}", self.local_uri, id);
+
         let req = Request::builder()
             .method(Method::DELETE)
             .uri(format!("{}/{}", self.target_uri, id))
-            .body(Body::from(""))
+            .header("Content-Type", "application/json")
+            .body(Body::from(body))
             .unwrap();
 
         let resp = client.request(req).await?;
