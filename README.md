@@ -1,6 +1,6 @@
 # Web Socket as a Service
 
-## Current status: ALPHA, Use at your own risk
+## Current status: BETA, I works on my laptop AND on the laptop of a coworker
 
 The project aim is to help systems scale their websocket interfaces.
 It should be used with a distributed or a lambda base system.
@@ -36,6 +36,10 @@ Will be called when the client push information through the websocket.
 Will be called after the client close the connection. Use it to maintain integrity in your system as the
 
 The POST request will contain a `ws_uri` parameter that will look like `<WS_HOSTNAME>/<someId>`
+
+*All those request will also send you the Authorization header from the initial request,
+so you can identify your incoming connection by either storing its ID or by having info about it in the header*
+
 
 This endpoint supports the following method:
 
