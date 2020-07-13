@@ -8,7 +8,8 @@ const port = 3000
 app.use(bodyParser.json())
 
 app.use((req, res) => {
-    console.log('[' + moment().format('hh:mm:ss') + '] '+ req.method + ':', req.path, req.body)
+    console.log('[' + moment().format('hh:mm:ss') + '] ' + req.method + ':', req.path, req.body)
+    console.log('AUTH:', req.header('Authorization'))
     res.send({ code: 'OK' })
     // res.status(403).send({ code: 'FORBIDDEN' })
 })

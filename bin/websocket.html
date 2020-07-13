@@ -13,7 +13,7 @@
     }
 
     function openWebSocket() {
-        websocket = new WebSocket(wsUri, ["access_token", "x3JJHMbDL1EzLkh9GBhXDw=="])
+        websocket = new WebSocket(wsUri, ['Authorization', '1234'])
         websocket.onopen = function (evt) { onOpen(evt) }
         websocket.onclose = function (evt) { onClose(evt) }
         websocket.onmessage = function (evt) { onMessage(evt) }
@@ -39,8 +39,10 @@
         writeToScreen("DISCONNECTED")
     }
 
-    function onMessage(evt) {
-        writeToScreen('<span style="color: blue">RESPONSE: ' + evt.data + '</span>')
+    async function onMessage(evt) {
+        var msg = await evt.data.text()
+        console.log(msg)
+        writeToScreen('<span style="color: blue">RESPONSE: ' + msg + '</span>')
     }
 
     function onError(evt) {

@@ -1,18 +1,14 @@
-use std::{
-    collections::HashMap,
-    net::{SocketAddr},
-    sync::{Arc},
-};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 
-use hyper::Body;
 use futures_channel::mpsc::{unbounded, UnboundedSender};
 use futures_util::{future, pin_mut, stream::TryStreamExt, StreamExt};
+use hyper::Body;
 
-use tokio::sync::Mutex;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::Mutex;
 use tokio::time::Instant;
-use tungstenite::protocol::Message;
 use tungstenite::handshake::server::{Request, Response};
+use tungstenite::protocol::Message;
 
 use uuid::Uuid;
 
@@ -31,7 +27,12 @@ pub struct WebsocketEngine {
 
 // TODO: Graceful shutdown
 impl WebsocketEngine {
-    pub fn new(port: String, timeout: u16, max_page: usize, client: LocalHttpClient) -> WebsocketEngine {
+    pub fn new(
+        port: String,
+        timeout: u16,
+        max_page: usize,
+        client: LocalHttpClient,
+    ) -> WebsocketEngine {
         WebsocketEngine {
             timeout: timeout,
             max_page: max_page,
@@ -49,7 +50,15 @@ impl WebsocketEngine {
         while let Ok((stream, addr)) = listener.accept().await {
             let id = Uuid::new_v4().to_string();
 
-            let task = WebsocketEngine::handle_connection(self.connections.clone(), self.http_client.clone(), id, stream, addr, self.timeout, self.max_page);
+            let task = WebsocketEngine::handle_connection(
+                self.connections.clone(),
+                self.http_client.clone(),
+                id,
+                stream,
+                addr,
+                self.timeout,
+                self.max_page,
+            );
             tokio::spawn(task);
         }
     }
@@ -58,14 +67,24 @@ impl WebsocketEngine {
     // TODO: Figure out the borrow issue that prevent making this a method
     // TODO: Find a way to make that function prototype lighter
     // TODO: Too much todo
-    async fn handle_connection(peer_map: PeerMap, client: LocalHttpClient, id: String, raw_stream: TcpStream, addr: SocketAddr, timeout: u16, max_page: usize) {
+    async fn handle_connection(
+        peer_map: PeerMap,
+        client: LocalHttpClient,
+        id: String,
+        raw_stream: TcpStream,
+        addr: SocketAddr,
+        timeout: u16,
+        max_page: usize,
+    ) {
         let start_time = Instant::now();
+        let mut auth_token = String::from("Unset");
         let auth_middleware_callback = |req: &Request, mut res: Response| {
             let auth = match req.headers().get("Authorization") {
                 Some(s) => String::from(s.to_str().unwrap()),
-                None => String::from("none")
+                None => String::from("None"), // TODO: Is this a good idea ?
             };
 
+            auth_token = String::from(auth.clone());
             if !client.on_connect(id.clone(), auth, timeout) {
                 info!("Connection {} rejected", id);
                 res.headers_mut().remove("upgrade");
@@ -84,13 +103,17 @@ impl WebsocketEngine {
 
         let (outgoing, incoming) = ws_stream.split();
         let msg_in = incoming.try_for_each(|msg| {
-            let message_length = msg.len() / (1024*32) + 1;
+            let message_length = msg.len() / (1024 * 32) + 1;
             info!("Client {} incoming msg ({} page)", id, message_length);
 
             if message_length > max_page {
                 warn!("Client {}: Message too long", id);
             } else {
-                tokio::spawn(client.clone().on_message(id.clone(), msg.to_string()));
+                tokio::spawn(client.clone().on_message(
+                    id.clone(),
+                    msg.to_string(),
+                    auth_token.clone(),
+                ));
             }
             future::ok(())
         });
@@ -99,10 +122,14 @@ impl WebsocketEngine {
         future::select(msg_in, msg_out).await;
 
         peer_map.lock().await.remove(&id);
-        info!("Closing client {}: duration {}s", id, start_time.elapsed().as_secs());
-        match client.clone().on_disconnect(id).await {
+        info!(
+            "Closing client {}: duration {}s",
+            id,
+            start_time.elapsed().as_secs()
+        );
+        match client.clone().on_disconnect(id, auth_token).await {
             Ok(_) => info!("client ({}) disconnected", &addr),
-            Err(_) => warn!("Error while sending disconnection request ({})", &addr)
+            Err(_) => warn!("Error while sending disconnection request ({})", &addr),
         };
     }
 
@@ -120,13 +147,18 @@ impl WebsocketEngine {
         let tmp_body = hyper::body::to_bytes(body).await.unwrap();
         let full_body = tmp_body.iter().cloned().collect::<Vec<u8>>();
 
-        let message_length = full_body.len() / (1024*32) + 1;
-        
+        let message_length = full_body.len() / (1024 * 32) + 1;
         if message_length > self.max_page {
-            warn!("Message from server to client {} failed to send: MESSAGE_TOO_LONG ({} page)", id, message_length);
-            return String::from("MESSAGE_TOO_LONG")
+            warn!(
+                "Message from server to client {} failed to send: MESSAGE_TOO_LONG ({} page)",
+                id, message_length
+            );
+            return String::from("MESSAGE_TOO_LONG");
         } else {
-            info!("New message from server to client {} ({} page)", id, message_length);
+            info!(
+                "New message from server to client {} ({} page)",
+                id, message_length
+            );
         }
 
         match peer_map.get(id) {
@@ -136,13 +168,16 @@ impl WebsocketEngine {
                 String::from("OK")
             }
             None => {
-                warn!("Message for client {} failed to send: Connection not found", id);
+                warn!(
+                    "Message for client {} failed to send: Connection not found",
+                    id
+                );
                 String::from("NOT_FOUND")
             }
         }
     }
 
-    pub async fn close_ws(&self, id: &String)  -> String {
+    pub async fn close_ws(&self, id: &String) -> String {
         info!("Close connection {} at request of server", id);
 
         let peer = self.connections.clone();
