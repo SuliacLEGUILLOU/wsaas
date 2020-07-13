@@ -1,0 +1,23 @@
+[Unit]
+Description=Web Socket As A Service
+After=network.target
+
+[Service]
+User=wsaas
+Group=wsaas
+PrivateTmp=true
+Type=simple
+PIDFile=/var/run/wsaas/%i.pid
+ExecStart=/data/dev/wsaas/target/release/wsaas
+KillMode=process
+Restart=on-failure
+Nice=5
+Environment="LOG_LEVEL=info"
+Environment="LOG_STYLE=never"
+Environment="WS_PORT=8887"
+Environment="HTTP_PORT=8081"
+Environment="TARGET_ADDRESS=http://localhost:3000/websocket"
+Environment="LOCAL_ADDRESS=http://localhost:8081"
+
+[Install]
+WantedBy=multi-user.target
